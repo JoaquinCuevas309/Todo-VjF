@@ -63,7 +63,7 @@ Get-Content $EnvFile | ForEach-Object {
     }
 }
 $Required = @("DB_USER", "DB_PASSWORD", "DB_NAME")
-$Missing  = $Required | Where-Object { -not $EnvVars.ContainsKey($_) -or [string]::IsNullOrWhiteSpace($EnvVars[$_]) }
+$Missing  = @($Required | Where-Object { -not $EnvVars.ContainsKey($_) -or [string]::IsNullOrWhiteSpace($EnvVars[$_]) })
 if ($Missing.Count -gt 0) {
     Write-Fail "Variables faltantes en .env: $($Missing -join ', ')"
 }
