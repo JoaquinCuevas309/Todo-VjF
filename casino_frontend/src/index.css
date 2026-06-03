@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Variables globales ─────────────────────────────────────────── */
+:root {
+  --font-display: 'Barlow Condensed', sans-serif;
+  --font-mono:    'IBM Plex Mono', monospace;
+  --font-body:    'Outfit', sans-serif;
+}
+
+/* ─── Reset base ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background-color: #060A12;
+  color: #E8ECF5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent flash of unstyled background on load */
+  min-height: 100vh;
+}
+
+/* ─── Scrollbar personalizado ────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #060A12; }
+::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.25);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.45);
+}
+
+/* ─── Selección de texto ─────────────────────────────────────────── */
+::selection {
+  background-color: rgba(245, 158, 11, 0.3);
+  color: #E8ECF5;
+}
+
+/* ─── Animaciones de fondo para Login ───────────────────────────────── */
+@keyframes orbFloat1 {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(4%, 6%) scale(1.08); }
+}
+@keyframes orbFloat2 {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(-5%, -4%) scale(1.12); }
+}
+
+/* ─── Utilidades de composición ──────────────────────────────────── */
+@layer utilities {
+  /* Fondo de cuadrícula ambar */
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(245, 158, 11, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(245, 158, 11, 0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  /* Borde superior con gradiente de degradado */
+  .border-top-glow {
+    position: relative;
+  }
+  .border-top-glow::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 10%; right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(245,158,11,0.5), transparent);
+  }
+
+  /* Input con línea inferior estilo terminal */
+  .input-terminal {
+    @apply w-full bg-transparent border-0 border-b border-ci-line
+           px-0 py-2.5 text-ci-primary font-body text-sm
+           placeholder:text-ci-muted
+           focus:outline-none focus:border-b focus:border-ci-line-active
+           transition-colors duration-200;
+  }
+  .input-terminal.error {
+    @apply border-ci-error/60;
+  }
+
+  /* Texto con efecto "typewriter" cursivo */
+  .cursor-blink::after {
+    content: '▋';
+    @apply text-ci-amber animate-blink ml-0.5;
+  }
+}

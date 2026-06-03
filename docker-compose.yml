@@ -1,0 +1,44 @@
+version: '3.9'
+
+services:
+
+  # ── Base de datos PostgreSQL ──────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB:       ${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # ── API FastAPI ───────────────────────────────────────────────────
+  api:
+    build:
+      context: ./casino_app    # Dockerfile está dentro de casino_app/
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy   # espera el healthcheck de Postgres
+    env_file:
+      - ./casino_app/.env            # carga las variables del archivo .env
+    environment:
+      # Sobreescribir DB_HOST para que apunte al servicio Docker, no a localhost
+      DB_HOST: db
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./casino_app:/app            # hot-reload en desarrollo
+
+volumes:
+  postgres_data:

@@ -1,0 +1,16 @@
+{
+  "name": "Casino Institucional",
+  "short_name": "Casino CI",
+  "description": "Sistema de gestión de casino de alimentación institucional",
+  "theme_color": "#060A12",
+  "background_color": "#060A12",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    { "src": "pwa-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "pwa-512x512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "pwa-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
