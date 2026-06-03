@@ -12,7 +12,9 @@ from app.core.security import (
     create_access_token,
     get_current_user,
     hash_password,
+    make_dummy_hash,
     needs_rehash,
+    require_role,
     verify_password,
 )
 from app.database import get_db
@@ -26,8 +28,8 @@ _MAX_FAILED_ATTEMPTS = 5
 _LOCKOUT_MINUTES = 15
 
 # Hash dummy para que "usuario no encontrado" tarde lo mismo que "contraseña incorrecta".
-# Se computa una sola vez al arrancar el proceso.
-_DUMMY_HASH: str = hash_password("dummy_timing_protection_value_x9z!")
+# Se computa una sola vez al arrancar el proceso (make_dummy_hash es síncrono, aceptable aquí).
+_DUMMY_HASH: str = make_dummy_hash("dummy_timing_protection_value_x9z!")
 
 
 # ---------------------------------------------------------------------------
@@ -60,7 +62,7 @@ async def login(
 
     # ── Usuario no existe: verificar igual contra dummy para igualar tiempos ──
     if user is None:
-        verify_password(body.password.get_secret_value(), _DUMMY_HASH)
+        await verify_password(body.password.get_secret_value(), _DUMMY_HASH)
         _log_attempt(None, identifier, request, success=False)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -86,7 +88,7 @@ async def login(
         )
 
     # ── Verificar contraseña ──
-    password_ok = verify_password(body.password.get_secret_value(), user.password_hash)
+    password_ok = await verify_password(body.password.get_secret_value(), user.password_hash)
 
     if not password_ok:
         user.failed_attempts += 1
@@ -110,7 +112,7 @@ async def login(
 
     # Actualizar hash si Argon2 cambió de parámetros
     if needs_rehash(user.password_hash):
-        user.password_hash = hash_password(body.password.get_secret_value())
+        user.password_hash = await hash_password(body.password.get_secret_value())
 
     await db.commit()
     _log_attempt(user.id, identifier, request, success=True)
@@ -136,17 +138,8 @@ async def login(
 async def register(
     body: UserCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _admin: Annotated[User, Depends(get_current_user)],
+    _admin: Annotated[User, Depends(require_role("admin"))],
 ) -> User:
-    from app.core.security import require_role
-
-    # Solo admin puede crear usuarios
-    if _admin.role.value != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Permisos insuficientes",
-        )
-
     # Verificar duplicados
     dup = await db.execute(
         select(User).where(User.rut == body.rut.upper())
@@ -171,7 +164,7 @@ async def register(
         rut=body.rut.upper(),
         email=body.email.lower() if body.email else None,
         full_name=body.full_name,
-        password_hash=hash_password(body.password.get_secret_value()),
+        password_hash=await hash_password(body.password.get_secret_value()),
         role=body.role,
         created_by=_admin.id,
     )

@@ -31,7 +31,9 @@ _AnyUser = Annotated[User, Depends(get_current_user)]
 # ---------------------------------------------------------------------------
 
 
-async def _resolve_diner(db: AsyncSession, body: TransactionCreate) -> tuple[User, UUID | None]:
+async def _resolve_diner(
+    db: AsyncSession, body: TransactionCreate
+) -> tuple[User, "Reservation | None"]:
     """
     Retorna (comensal, reservation_id).
     Si el identificador es un qr_token, también valida y devuelve el ID de reserva.
@@ -52,9 +54,11 @@ async def _resolve_diner(db: AsyncSession, body: TransactionCreate) -> tuple[Use
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Comensal no encontrado")
         return diner, None
 
-    # ── Resolución por qr_token ───────────────────────────────────────────
+    # ── Resolución por qr_token — bloqueo pesimista para prevenir doble consumo ──
     res_result = await db.execute(
-        select(Reservation).where(Reservation.qr_token == body.qr_token)
+        select(Reservation)
+        .where(Reservation.qr_token == body.qr_token)
+        .with_for_update()
     )
     reservation = res_result.scalar_one_or_none()
 
@@ -83,7 +87,7 @@ async def _resolve_diner(db: AsyncSession, body: TransactionCreate) -> tuple[Use
 
     diner_result = await db.execute(select(User).where(User.id == reservation.user_id))
     diner = diner_result.scalar_one()
-    return diner, reservation.id
+    return diner, reservation
 
 
 # ---------------------------------------------------------------------------
@@ -102,8 +106,8 @@ async def create_transaction(
     db: Annotated[AsyncSession, Depends(get_db)],
     operator: _OperatorUser,
 ) -> Transaction:
-    # 1. Resolver comensal (sin bloquear aún)
-    diner, reservation_id = await _resolve_diner(db, body)
+    # 1. Resolver comensal — si viene por QR, la reserva ya está bloqueada con FOR UPDATE
+    diner, reservation = await _resolve_diner(db, body)
 
     if not diner.is_active:
         raise HTTPException(
@@ -131,12 +135,8 @@ async def create_transaction(
             f"Sin porciones disponibles — servidas: {menu.served_portions}/{menu.max_portions}",
         )
 
-    # 4. Marcar reserva como consumida si llegó por qr_token
-    if body.qr_token and reservation_id:
-        res_result = await db.execute(
-            select(Reservation).where(Reservation.id == reservation_id)
-        )
-        reservation = res_result.scalar_one()
+    # 4. Marcar reserva como consumida — usamos el objeto ya bloqueado, sin re-fetch
+    if body.qr_token and reservation is not None:
         reservation.status = "consumed"
         reservation.consumed_at = datetime.now(UTC)
 
@@ -149,7 +149,7 @@ async def create_transaction(
         user_id=diner.id,
         menu_id=menu.id,
         operator_id=operator.id,  # extraído del JWT
-        reservation_id=reservation_id,
+        reservation_id=reservation.id if reservation is not None else None,
         status="completed",
         payment_method=body.payment_method.value,
         amount=body.amount,
@@ -185,7 +185,7 @@ async def create_transaction(
         "transaction.created",
         tx_id=str(tx.id),
         diner_id=str(diner.id),
-        diner_rut=diner.rut,
+        diner_rut=diner.rut[:4] + "***",
         operator_id=str(operator.id),
         menu_id=str(menu.id),
         payment_method=body.payment_method.value,

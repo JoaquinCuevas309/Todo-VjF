@@ -1,10 +1,32 @@
+import enum
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, Uuid
+from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Numeric, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+
+class TxStatus(str, enum.Enum):
+    completed = "completed"
+    reversed = "reversed"
+    pending = "pending"
+
+
+class PaymentMethod(str, enum.Enum):
+    balance = "balance"
+    payroll_discount = "payroll_discount"
+    cash = "cash"
+    free = "free"
+
+
+class ReservationStatus(str, enum.Enum):
+    active = "active"
+    consumed = "consumed"
+    cancelled = "cancelled"
+    expired = "expired"
 
 
 class Transaction(Base):
@@ -19,23 +41,30 @@ class Transaction(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("casino.users.id"), nullable=False
+        Uuid, ForeignKey("casino.users.id"), nullable=False, index=True
     )
     menu_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("casino.menus.id")
     )
     operator_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("casino.users.id"), nullable=False
+        Uuid, ForeignKey("casino.users.id"), nullable=False, index=True
     )
     reservation_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid, ForeignKey("casino.reservations.id")
+        Uuid, ForeignKey("casino.reservations.id", ondelete="RESTRICT")
     )
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="completed")
-    payment_method: Mapped[str] = mapped_column(String(30), nullable=False)
-    amount: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    status: Mapped[TxStatus] = mapped_column(
+        SAEnum(TxStatus, name="tx_status", schema="casino", create_type=False),
+        nullable=False,
+        default=TxStatus.completed,
+    )
+    payment_method: Mapped[PaymentMethod] = mapped_column(
+        SAEnum(PaymentMethod, name="payment_method", schema="casino", create_type=False),
+        nullable=False,
+    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
 
     # Relaciones de solo lectura — lazy="raise" obliga a carga explícita (previene N+1)
@@ -67,10 +96,14 @@ class Reservation(Base):
     menu_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("casino.menus.id"), nullable=False
     )
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    status: Mapped[ReservationStatus] = mapped_column(
+        SAEnum(ReservationStatus, name="reservation_status", schema="casino", create_type=False),
+        nullable=False,
+        default=ReservationStatus.active,
+    )
     qr_token: Mapped[str | None] = mapped_column(String(64), unique=True)
     reserved_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

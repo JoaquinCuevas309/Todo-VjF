@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Annotated
 
@@ -23,13 +24,18 @@ _bearer = HTTPBearer(auto_error=True)
 # ---------------------------------------------------------------------------
 
 
-def hash_password(plain: str) -> str:
+def make_dummy_hash(plain: str) -> str:
+    """Sync — solo para inicialización de módulo. En handlers usa hash_password()."""
     return _ph.hash(plain)
 
 
-def verify_password(plain: str, hashed: str) -> bool:
+async def hash_password(plain: str) -> str:
+    return await asyncio.to_thread(_ph.hash, plain)
+
+
+async def verify_password(plain: str, hashed: str) -> bool:
     try:
-        return _ph.verify(hashed, plain)
+        return await asyncio.to_thread(_ph.verify, hashed, plain)
     except VerifyMismatchError:
         return False
 
