@@ -1,14 +1,15 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
+import AppLayout from '@/components/layout/AppLayout'
 
 // ─── Carga diferida para reducir el bundle inicial ────────────────
-const LoginPage       = lazy(() => import('@/modules/auth/LoginPage'))
-const DashboardPage   = lazy(() => import('@/modules/reports/DashboardPage'))
-const MenusPage       = lazy(() => import('@/modules/menus/MenusPage'))
-const POSPage         = lazy(() => import('@/modules/pos/POSPage'))
-const ReportsPage     = lazy(() => import('@/modules/reports/ReportsPage'))
-const DinerApp        = lazy(() => import('@/features/diner/components/DinerApp'))
+const LoginPage     = lazy(() => import('@/modules/auth/LoginPage'))
+const DashboardPage = lazy(() => import('@/modules/reports/DashboardPage'))
+const MenusPage     = lazy(() => import('@/modules/menus/MenusPage'))
+const POSPage       = lazy(() => import('@/modules/pos/POSPage'))
+const ReportsPage   = lazy(() => import('@/modules/reports/ReportsPage'))
+const DinerApp      = lazy(() => import('@/features/diner/components/DinerApp'))
 
 // ─── Página de acceso denegado (inline, sin lazy) ─────────────────
 const UnauthorizedPage = () => (
@@ -36,34 +37,38 @@ export default function AppRouter() {
         <Routes>
 
           {/* ── Pública ──────────────────────────────────────── */}
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/login"        element={<LoginPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-          {/* ── Comensales (vista móvil PWA) ─────────────────── */}
+          {/* ── Comensales (vista móvil PWA) — sin AppLayout ─── */}
           <Route element={<ProtectedRoute allowedRoles={['diner']} />}>
             <Route path="/mi-casino" element={<DinerApp />} />
           </Route>
 
-          {/* ── Cualquier usuario autenticado ────────────────── */}
+          {/* ── Rutas con layout (admin + operator) ──────────── */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/menus"     element={<MenusPage />} />
+            <Route element={<AppLayout />}>
+
+              {/* Cualquier usuario autenticado */}
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/menus"     element={<MenusPage />} />
+
+              {/* Solo operators y admins */}
+              <Route element={<ProtectedRoute allowedRoles={['admin', 'operator']} />}>
+                <Route path="/pos" element={<POSPage />} />
+              </Route>
+
+              {/* Solo admins */}
+              <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                <Route path="/reports" element={<ReportsPage />} />
+              </Route>
+
+            </Route>
           </Route>
 
-          {/* ── Solo operators y admins (POS) ────────────────── */}
-          <Route element={<ProtectedRoute allowedRoles={['admin', 'operator']} />}>
-            <Route path="/pos" element={<POSPage />} />
-          </Route>
-
-          {/* ── Solo admins (reportes) ────────────────────────── */}
-          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-            <Route path="/reports" element={<ReportsPage />} />
-          </Route>
-
-          {/* Raíz → redirige según rol (manejado en AuthContext en producción) */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          {/* Raíz y catch-all */}
+          <Route path="/"  element={<Navigate to="/dashboard" replace />} />
+          <Route path="*"  element={<Navigate to="/dashboard" replace />} />
 
         </Routes>
       </Suspense>
