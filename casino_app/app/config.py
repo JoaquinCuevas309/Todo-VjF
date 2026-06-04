@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTH: str = "5/minute"
     RATE_LIMIT_API: str = "100/minute"
 
+    # CORS
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+
     # Entorno
     ENVIRONMENT: str = "production"
     LOG_LEVEL: str = "INFO"
