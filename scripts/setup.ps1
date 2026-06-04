@@ -19,7 +19,7 @@ param(
 )
 
 Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 # ── Rutas ─────────────────────────────────────────────────────────────────────
 $ProjectRoot  = Split-Path -Parent $PSScriptRoot
