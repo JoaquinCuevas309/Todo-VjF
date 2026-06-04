@@ -1,3 +1,4 @@
 .env
 backups/*.sql.gz
 Todo VjF/
+.superpowers/
