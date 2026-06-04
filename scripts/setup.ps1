@@ -96,7 +96,7 @@ try {
     if ($Verbose) {
         docker compose up -d --build
     } else {
-        docker compose up -d --build 2>&1 | Out-Null
+        $null = docker compose up -d --build 2>&1
     }
     if ($LASTEXITCODE -ne 0) { Write-Fail "docker compose up fallo." }
 } finally {
