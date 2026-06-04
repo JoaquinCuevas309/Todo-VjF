@@ -52,8 +52,8 @@ if ([string]::IsNullOrWhiteSpace($DbUser) -or [string]::IsNullOrWhiteSpace($DbNa
 
 # ── Step 1: Validar contenedor ────────────────────────────────────────────────
 Write-Step "Verificando contenedor todovjf-db-1..."
-$running = docker inspect --format "{{.State.Running}}" todovjf-db-1 2>$null
-if ($running -ne "true") { Write-Fail "El contenedor todovjf-db-1 no está corriendo." }
+$running = docker inspect --format "{{.State.Running}}" casino-vjf-db-1 2>$null
+if ($running -ne "true") { Write-Fail "El contenedor casino-vjf-db-1 no esta corriendo." }
 Write-Ok "Contenedor activo."
 
 # ── Step 2: Crear directorio ──────────────────────────────────────────────────
@@ -68,7 +68,7 @@ $Filename  = "$Timestamp.sql.gz"
 $Filepath  = Join-Path $OutputDir $Filename
 
 Write-Step "Ejecutando pg_dump -> $Filename ..."
-docker exec todovjf-db-1 sh -c "pg_dump -U $DbUser $DbName | gzip" | Set-Content -Path $Filepath -Encoding Byte
+docker exec casino-vjf-db-1 sh -c "pg_dump -U $DbUser $DbName | gzip" | Set-Content -Path $Filepath -Encoding Byte
 if ($LASTEXITCODE -ne 0) { Write-Fail "pg_dump fallo (exit $LASTEXITCODE)." }
 
 # ── Step 4: Verificar integridad ──────────────────────────────────────────────

@@ -75,7 +75,7 @@ $DbName = $EnvVars["DB_NAME"]
 # ── Step 3: Backup condicional ────────────────────────────────────────────────
 if (-not $SkipBackup) {
     Write-Step "Verificando si existen datos previos..."
-    $VolumeExists = docker volume ls --format "{{.Name}}" 2>$null | Where-Object { $_ -eq "todovjf_postgres_data" }
+    $VolumeExists = docker volume ls --format "{{.Name}}" 2>$null | Where-Object { $_ -eq "casino-vjf_postgres_data" }
     if ($VolumeExists) {
         Write-Host "[INFO] Volumen postgres_data detectado. Ejecutando backup de seguridad..." -ForegroundColor Yellow
         & $BackupScript -Keep 7
@@ -89,22 +89,16 @@ if (-not $SkipBackup) {
     Write-Warn "Flag -SkipBackup activo. Se omite el backup."
 }
 
-# ── Step 4: docker compose up ─────────────────────────────────────────────────
-Write-Step "Levantando infraestructura (docker compose up -d --build)..."
+# ── Step 4: Levantar solo la BD primero ──────────────────────────────────────
+Write-Step "Levantando base de datos (docker compose up -d db --build)..."
 Push-Location $ProjectRoot
 try {
-    try {
-        if ($Verbose) {
-            docker compose up -d --build
-        } else {
-            $null = docker compose up -d --build 2>&1
-        }
-    } catch { }
-    if ($LASTEXITCODE -ne 0) { Write-Fail "docker compose up fallo." }
+    try { $null = docker compose up -d db --build 2>&1 } catch { }
+    if ($LASTEXITCODE -ne 0) { Write-Fail "No se pudo levantar el contenedor db." }
 } finally {
     Pop-Location
 }
-Write-Ok "Contenedores iniciados."
+Write-Ok "Contenedor db iniciado."
 
 # ── Step 5: Esperar healthcheck de db ────────────────────────────────────────
 Write-Step "Esperando que PostgreSQL este saludable (max 60s)..."
@@ -113,7 +107,7 @@ $Elapsed = 0
 do {
     Start-Sleep -Seconds 2
     $Elapsed += 2
-    $Health = docker inspect --format "{{.State.Health.Status}}" todovjf-db-1 2>$null
+    $Health = docker inspect --format "{{.State.Health.Status}}" casino-vjf-db-1 2>$null
     Write-Host "   [$Elapsed s] Estado: $Health   " -NoNewline
     Write-Host "`r" -NoNewline
 } while ($Health -ne "healthy" -and $Elapsed -lt $Timeout)
@@ -126,24 +120,40 @@ Write-Ok "PostgreSQL healthy."
 
 # ── Step 6: Init schema (idempotente) ────────────────────────────────────────
 Write-Step "Verificando schema 'casino'..."
-$SchemaExists = docker exec todovjf-db-1 psql -U $DbUser -d $DbName -tAc "SELECT 1 FROM information_schema.schemata WHERE schema_name = 'casino';" 2>$null
+$SchemaExists = docker exec casino-vjf-db-1 psql -U $DbUser -d $DbName -tAc "SELECT 1 FROM information_schema.schemata WHERE schema_name = 'casino';" 2>$null
 if ($SchemaExists) { $SchemaExists = $SchemaExists.Trim() }
 
 if ($SchemaExists -ne "1") {
     Write-Host "[INFO] Schema 'casino' no encontrado. Ejecutando init_db.sql..." -ForegroundColor Yellow
     if (-not (Test-Path $InitSql)) { Write-Fail "No se encontro $InitSql" }
-    Get-Content $InitSql | docker exec -i todovjf-db-1 psql -U $DbUser -d $DbName 2>&1 | Out-Null
+    Get-Content $InitSql | docker exec -i casino-vjf-db-1 psql -U $DbUser -d $DbName 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { Write-Fail "init_db.sql fallo." }
     Write-Ok "Schema 'casino' inicializado."
 } else {
     Write-Ok "Schema 'casino' ya existe. Se omite init_db.sql."
 }
 
-# ── Step 7: Alembic migrations ───────────────────────────────────────────────
-Write-Step "Ejecutando migraciones Alembic..."
-docker exec todovjf-api-1 alembic upgrade head
-if ($LASTEXITCODE -ne 0) { Write-Fail "alembic upgrade head fallo." }
-Write-Ok "Migraciones aplicadas."
+# ── Step 6b: Levantar la API (ahora que el schema existe) ────────────────────
+Write-Step "Levantando API (docker compose up -d api --build)..."
+Push-Location $ProjectRoot
+try {
+    try { $null = docker compose up -d api --build 2>&1 } catch { }
+    if ($LASTEXITCODE -ne 0) { Write-Fail "No se pudo levantar el contenedor api." }
+} finally {
+    Pop-Location
+}
+Write-Ok "Contenedor api iniciado."
+
+# ── Step 7: Esperar que la API arranque y ejecute Alembic ────────────────────
+Write-Step "Esperando que la API arranque (max 60s)..."
+$Elapsed = 0
+do {
+    Start-Sleep -Seconds 2
+    $Elapsed += 2
+    $ApiState = docker inspect --format "{{.State.Status}}" casino-vjf-api-1 2>$null
+} while ($ApiState -ne "running" -and $Elapsed -lt $Timeout)
+Start-Sleep -Seconds 3
+Write-Ok "API en ejecucion."
 
 # ── Step 8: Smoke test ───────────────────────────────────────────────────────
 Write-Step "Smoke test: GET /health..."
