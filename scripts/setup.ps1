@@ -93,11 +93,13 @@ if (-not $SkipBackup) {
 Write-Step "Levantando infraestructura (docker compose up -d --build)..."
 Push-Location $ProjectRoot
 try {
-    if ($Verbose) {
-        docker compose up -d --build
-    } else {
-        $null = docker compose up -d --build 2>&1
-    }
+    try {
+        if ($Verbose) {
+            docker compose up -d --build
+        } else {
+            $null = docker compose up -d --build 2>&1
+        }
+    } catch { }
     if ($LASTEXITCODE -ne 0) { Write-Fail "docker compose up fallo." }
 } finally {
     Pop-Location
