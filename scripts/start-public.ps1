@@ -81,7 +81,7 @@ Write-Ok "Frontend buildeado."
 
 # ── Step 5: Servir frontend en :3000 ─────────────────────────────────────────
 Write-Step "Iniciando servidor frontend en :3000..."
-$serveProc = Start-Process "npx" -ArgumentList "serve dist -l 3000 --single" `
+$serveProc = Start-Process "cmd" -ArgumentList "/c npx serve dist -l 3000 --single" `
     -WorkingDirectory $FrontendDir -PassThru -NoNewWindow
 Start-Sleep -Seconds 2
 Write-Ok "Frontend sirviendo en localhost:3000"
