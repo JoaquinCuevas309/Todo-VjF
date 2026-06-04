@@ -45,7 +45,7 @@ Write-Ok "Contenedores activos: $dbName, $apiName"
 Write-Step "Iniciando tunel de la API..."
 if (Test-Path $ApiLogFile) { Remove-Item $ApiLogFile -Force }
 $apiTunnelProc = Start-Process "cloudflared" -ArgumentList "tunnel --url http://localhost:8000" `
-    -RedirectStandardError $ApiLogFile -PassThru -NoNewWindow -WindowStyle Hidden
+    -RedirectStandardError $ApiLogFile -PassThru -NoNewWindow
 
 # Esperar hasta que aparezca la URL (max 30s)
 $elapsed = 0
@@ -82,7 +82,7 @@ Write-Ok "Frontend buildeado."
 # ── Step 5: Servir frontend en :3000 ─────────────────────────────────────────
 Write-Step "Iniciando servidor frontend en :3000..."
 $serveProc = Start-Process "npx" -ArgumentList "serve dist -l 3000 --single" `
-    -WorkingDirectory $FrontendDir -PassThru -NoNewWindow -WindowStyle Hidden
+    -WorkingDirectory $FrontendDir -PassThru -NoNewWindow
 Start-Sleep -Seconds 2
 Write-Ok "Frontend sirviendo en localhost:3000"
 
@@ -90,7 +90,7 @@ Write-Ok "Frontend sirviendo en localhost:3000"
 Write-Step "Iniciando tunel del frontend..."
 if (Test-Path $FrontLogFile) { Remove-Item $FrontLogFile -Force }
 $frontTunnelProc = Start-Process "cloudflared" -ArgumentList "tunnel --url http://localhost:3000" `
-    -RedirectStandardError $FrontLogFile -PassThru -NoNewWindow -WindowStyle Hidden
+    -RedirectStandardError $FrontLogFile -PassThru -NoNewWindow
 
 $elapsed   = 0
 $frontUrl  = $null
